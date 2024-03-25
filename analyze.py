@@ -1,11 +1,14 @@
 from selenium import webdriver
-import os, sys, getopt, time, threading, re
+from pyvirtualdisplay import Display
+import os, sys, getopt, time, threading, re, json
 
+display = Display(visible = 0, size = (800, 600))
+display.start()
 def main(argv):
 	try:
 		opts, args = getopt.getopt(argv,"u:f:",["url=","file=",])
 	except getopt.GetoptError:
-		print('[*] Usage: python ./analyze.py -u <url> to scan a specific URL or analyze.py -f <file> to scan URLS from a given file')
+		print('[*] Usage: pyth	on ./analyze.py -u <url> to scan a specific URL or analyze.py -f <file> to scan URLS from a given file')
 		sys.exit(2)
 	for opt, arg in opts:
 		if opt in ("-u", "--url"):
@@ -67,8 +70,8 @@ def scrape(driverInd, url):
 	except Exception as e:
 		print(f'[!] {e}')
 def clean():
-	global threads,drivers
-	while True:
+	global threads,drivers,cleanerStop
+	while not(cleanerStop):
 		for t in threads.copy():
 			if not(t.is_alive()):
 				drivers[t.driverInd].is_occupied = False
@@ -83,9 +86,10 @@ def get_free():
 	return free[0]
 
 def static_analyze(urls):
-	global threads, drivers
+	global threads, drivers, cleanerStop
 	count = int(input("[?] Quantity of threads: ")) if len(urls)>1 else 1
 	cleaner = threading.Thread(target=clean)
+	cleanerStop = False
 	cleaner.start()
 	for n in range(count):
 		driver = chrome_new_session(extensions=['wappalyzer'],operating_system=check_os())
@@ -94,7 +98,15 @@ def static_analyze(urls):
 		url = url.strip('\r\n')
 		url = re.search(r"(?:https?://)?([^:/\n]+)", url).group(1)
 		load('https://'+url)
-	print("[!] All URLS have been scanned.")
+	print("[!] All URLS have been handled.")
+	while threads:
+		time.sleep(1)
+	for driver in drivers:
+		driver.quit()
+	print("[*] All drivers had been terminated.")
+	display.stop()
+	cleanerStop = True
+	print("[*] Virtual display had been terminated.")
 if __name__ == '__main__':
 	main(sys.argv[1:])
 		

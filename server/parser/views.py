@@ -11,8 +11,6 @@ def parse(request):
             json_data = json.loads(data)
             url, data = json_data["url"], json_data["technologies"]
             search = Sites.objects.filter(url=url)
-            if not 'https://' in url and not 'http://' in url:
-                url = 'https://'+url
             if search:
                 site = search[0]
                 if data:
