@@ -6,19 +6,30 @@ display = Display(visible = 0, size = (800, 600))
 display.start()
 def main(argv):
 	try:
-		opts, args = getopt.getopt(argv,"u:f:",["url=","file=",])
+		opts, args = getopt.getopt(argv,"u:f:w:",["url=","file=","wait="])
 	except getopt.GetoptError:
-		print('[*] Usage: pyth	on ./analyze.py -u <url> to scan a specific URL or analyze.py -f <file> to scan URLS from a given file')
+		print('[*] Usage: python ./analyze.py -u <url> to scan a specific URL or analyze.py -f <file> to scan URLS from a given file')
 		sys.exit(2)
+	urls = []
+	wait = 5
 	for opt, arg in opts:
 		if opt in ("-u", "--url"):
 			print('[!] Reading URL: '+arg)
 			url = arg
-			static_analyze([url])
+			urls.append(url)
 		elif opt in ("-f", "--file"):
 			print('[!] Reading URLs from file: '+arg)
 			file = open(arg,'r').readlines()
-			static_analyze(file)
+			urls += file
+		elif opt in ("-w", "--wait"):
+			if arg.strip().isdigit():
+				print(f'[*] Set wait time for {arg.strip()}')
+				wait = int(arg.strip())
+			else:
+				print('Incorrect wait time given. Shutting down.')
+				exit()
+	if urls:
+		static_analyze(urls, wait)
 
 def check_os():
 	platform = sys.platform
@@ -52,20 +63,20 @@ def chrome_new_session(operating_system,extensions=None):
 	
 drivers = []
 threads = []
-def load(url):
+def load(url, wait):
 	global threads,drivers
 	freeInd = get_free()
-	threads.append(threading.Thread(target=scrape, args=(freeInd, url)))
+	threads.append(threading.Thread(target=scrape, args=(freeInd, url, wait)))
 	threads[-1].driverInd = freeInd
 	threads[-1].start()
 	drivers[freeInd].is_occupied = True
-def scrape(driverInd, url):
+def scrape(driverInd, url, wait):
 	global drivers
 	driver = drivers[driverInd]
 	try:
 		print('[*] Scanning '+url)
 		driver.get(url)
-		time.sleep(2)
+		time.sleep(wait)
 		print('[!] Complete')
 	except Exception as e:
 		print(f'[!] {e}')
@@ -85,7 +96,7 @@ def get_free():
 		free = [ind for ind in range(len(drivers)) if not(drivers[ind].is_occupied)]
 	return free[0]
 
-def static_analyze(urls):
+def static_analyze(urls, wait):
 	global threads, drivers, cleanerStop
 	count = int(input("[?] Quantity of threads: ")) if len(urls)>1 else 1
 	cleaner = threading.Thread(target=clean)
@@ -97,7 +108,7 @@ def static_analyze(urls):
 	for url in urls:
 		url = url.strip('\r\n')
 		url = re.search(r"(?:https?://)?([^:/\n]+)", url).group(1)
-		load('https://'+url)
+		load('https://'+url, wait)
 	print("[!] All URLS have been handled.")
 	while threads:
 		time.sleep(1)
